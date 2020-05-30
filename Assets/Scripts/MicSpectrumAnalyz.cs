@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using MidiJack;
 
 public class MicSpectrumAnalyz : MonoBehaviour
 {
@@ -31,13 +32,30 @@ public class MicSpectrumAnalyz : MonoBehaviour
     }
 
     // float A=0,B=0,C=0;
+    bool[] key_Status=new bool[88];
+    public bool MIDIStatus=true;
+    void AudStop(){
+        MIDIStatus=false;
+        Audiosource.Stop();
+    }
 
     void Update()
     {
         key_judg = new bool[88];
-        WaveformData = new float[len_spectrum];
-        FreqComponents = new float[len_spectrum];
-        float[] keyHzList = {
+        for(int i=0;i<88;i++){
+            if(MidiMaster.GetKeyDown(i+21)){
+                key_Status[i]=true;
+                if(MIDIStatus) AudStop();
+            }
+            if(MidiMaster.GetKeyUp(i+21)){
+                key_Status[i]=false;
+            }
+            key_judg[i]=key_Status[i];
+        }
+        if(MIDIStatus){
+            WaveformData = new float[len_spectrum];
+            FreqComponents = new float[len_spectrum];
+            float[] keyHzList = {
 27.500f,
 29.135f,
 30.868f,
@@ -127,41 +145,33 @@ public class MicSpectrumAnalyz : MonoBehaviour
 3951.066f,
 4186.009f,
         };
-        
-        Audiosource.GetOutputData(WaveformData, 0);
-        Audiosource.GetSpectrumData(FreqComponents,0,FFTWindow.BlackmanHarris);
-        keys = new float[88];
-        for(int k = 0; k < 88; ++k) {
-
-            FreqComponents[k]*=10000000;
-            float hz = keyHzList[k];
-            int m = (int)(AudioSettings.outputSampleRate / hz);
-            int N = WaveformData.Length - m;
-            float diff = 0f;
-            for (int n = 0; n < N; ++n) {
-                diff += Mathf.Abs(WaveformData[n] - WaveformData[n + m]);
+            Audiosource.GetOutputData(WaveformData, 0);
+            Audiosource.GetSpectrumData(FreqComponents,0,FFTWindow.BlackmanHarris);
+            keys = new float[88];
+            for(int k = 0; k < 88; ++k) {
+                
+                FreqComponents[k]*=10000000;
+                float hz = keyHzList[k];
+                int m = (int)(AudioSettings.outputSampleRate / hz);
+                int N = WaveformData.Length - m;
+                float diff = 0f;
+                for (int n = 0; n < N; ++n) {
+                    diff += Mathf.Abs(WaveformData[n] - WaveformData[n + m]);
+                }
+                diff *= 1.0f / N;
+                keys[k] = diff;
             }
-            diff *= 1f / N;
-            keys[k] = diff;
-        }
-        // string s="";
-        for(int i=0;i<1;i++){
-            int Ind=System.Array.IndexOf(keys,keys.Min());
-            // Debug.Log(keys[Ind]+" "+keys[Ind+1]);
-            if(keys[Ind]>0.001f){
-                key_judg[Ind]=true;
-        //         // s += noteNames[(Ind+21)%12];
-        //         // s +=" , ";
-                keys[Ind]=100;
+            // string s="";
+            for(int i=0;i<1;i++){
+                int Ind=System.Array.IndexOf(keys,keys.Min());
+                // Debug.Log(keys[Ind]+" "+keys[Ind+1]);
+                if(keys[Ind]>0.001f){
+                    key_judg[Ind]=true;
+                    keys[Ind]=100;
+                }
+                
             }
-
         }
-        // text.text=s;
-
-
-        // if(s!=" ")Debug.Log(s);
-
-
         // //鍵盤で全探索
         // for (int i = 0; i < 88; i++)
         // {
